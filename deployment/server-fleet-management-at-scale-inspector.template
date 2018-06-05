@@ -1,0 +1,566 @@
+#===============================================================================
+# Template: server-fleet-management-at-scale-inspector.template
+#
+# Purpose:  Builds Inspector resources:
+#           - Inspector resource group
+#           - Inspector target
+#           - Inspector template
+#           - scheduled Inspector assessment runs
+#           - Lambda responder functions and related resources
+#
+#===============================================================================
+AWSTemplateFormatVersion: 2010-09-09
+
+#==================================================
+# Metadata
+#==================================================
+Metadata:
+
+  AWS::CloudFormation::Interface:
+
+    ParameterGroups:
+      - Label:
+          default: Settings
+        Parameters:
+          - Environment
+          - NotificationEmailAddress
+
+    ParameterLabels:
+      Environment:
+        default: Managed Hosts Tag Name
+
+      NotificationEmailAddress:
+        default: Notification Email Address
+
+#==================================================
+# Parameters
+#==================================================
+Parameters:
+
+  Environment:
+    Description: |
+      Amazon Inspector enables you to analyze the behavior of your AWS
+      resources and helps you to identify potential security issues.
+      Using Amazon Inspector, you can define a collection of AWS resources that
+      you want to include in an assessment target. You can then create an
+      assessment template and launch a security assessment run of this target.
+    Type: String
+    Default: Sample Fleet
+
+  NotificationEmailAddress:
+    Description: |
+      Notification email address used to receive Inspector assessment run
+      completion notifications. **NOTE**: You will receive a confirmation email
+      that you must accept in order to receive these notifications. (This feature
+      only applies if you launch the template in a region that supports Inspector.)
+    Type: String
+
+  UUID:
+    Description: UUID of the solution. Passed from the primary template.
+    Type: String
+
+  SendAnonymousData:
+    Description: |
+      To send or not to send anonymous usage data. Passed from the primary template.
+    Type: String
+
+
+
+
+
+
+#==================================================
+# Conditions
+#==================================================
+Conditions:
+
+  #==================================================
+  # An Inspector SNS email notification will be added
+  # if an email address was provided.
+  #==================================================
+  NotificationEmailAddressIsProvided: !Not [!Equals [!Ref NotificationEmailAddress, ""]]
+
+#==================================================
+# Mappings
+#==================================================
+Mappings:
+
+  #==================================================
+  # Sources:
+  # http://docs.aws.amazon.com/inspector/latest/userguide/inspector_rules-arns.html for rules ARNs
+  # http://docs.aws.amazon.com/inspector/latest/userguide/inspector_assessments.html for Inspector account ARNs for SNS
+  #==================================================
+  InspectorSettings:
+
+    ap-northeast-1:
+      CVERulesPackage: arn:aws:inspector:ap-northeast-1:406045910587:rulespackage/0-gHP9oWNT
+      CISRulesPackage: arn:aws:inspector:ap-northeast-1:406045910587:rulespackage/0-7WNjqgGu
+      SecurityBestPracticesRulesPackage: arn:aws:inspector:ap-northeast-1:406045910587:rulespackage/0-bBUQnxMq
+      RuntimeBehaviorRulesPackage: arn:aws:inspector:ap-northeast-1:406045910587:rulespackage/0-knGBhqEu
+      ServiceAccountArn: arn:aws:iam::406045910587:root
+
+    ap-northeast-2:
+      CVERulesPackage: arn:aws:inspector:ap-northeast-2:526946625049:rulespackage/0-PoGHMznc
+      CISRulesPackage: arn:aws:inspector:ap-northeast-2:526946625049:rulespackage/0-T9srhg1z
+      SecurityBestPracticesRulesPackage: arn:aws:inspector:ap-northeast-2:526946625049:rulespackage/0-2WRpmi4n
+      RuntimeBehaviorRulesPackage: arn:aws:inspector:ap-northeast-2:526946625049:rulespackage/0-PoYq7lI7
+      ServiceAccountArn: arn:aws:iam::526946625049:root
+
+    ap-south-1:
+      CVERulesPackage: arn:aws:inspector:ap-south-1:162588757376:rulespackage/0-LqnJE9dO
+      CISRulesPackage: arn:aws:inspector:ap-south-1:162588757376:rulespackage/0-PSUlX14m
+      SecurityBestPracticesRulesPackage: arn:aws:inspector:ap-south-1:162588757376:rulespackage/0-fs0IZZBj
+      RuntimeBehaviorRulesPackage: arn:aws:inspector:ap-south-1:162588757376:rulespackage/0-EhMQZy6C
+      ServiceAccountArn: arn:aws:iam::162588757376:root
+
+    ap-southeast-1:
+      CVERulesPackage: NotSupported
+      CISRulesPackage: NotSupported
+      SecurityBestPracticesRulesPackage: NotSupported
+      RuntimeBehaviorRulesPackage: NotSupported
+      ServiceAccountArn: NotSupported
+
+    ap-southeast-2:
+      CVERulesPackage: arn:aws:inspector:ap-southeast-2:454640832652:rulespackage/0-D5TGAxiR
+      CISRulesPackage: arn:aws:inspector:ap-southeast-2:454640832652:rulespackage/0-Vkd2Vxjq
+      SecurityBestPracticesRulesPackage: arn:aws:inspector:ap-southeast-2:454640832652:rulespackage/0-asL6HRgN
+      RuntimeBehaviorRulesPackage: arn:aws:inspector:ap-southeast-2:454640832652:rulespackage/0-P8Tel2Xj
+      ServiceAccountArn: arn:aws:iam::454640832652:root
+
+    ca-central-1:
+      CVERulesPackage: NotSupported
+      CISRulesPackage: NotSupported
+      SecurityBestPracticesRulesPackage: NotSupported
+      RuntimeBehaviorRulesPackage: NotSupported
+      ServiceAccountArn: NotSupported
+
+    eu-central-1:
+      CVERulesPackage: arn:aws:inspector:eu-central-1:537503971621:rulespackage/0-wNqHa8M9
+      CISRulesPackage: arn:aws:inspector:eu-central-1:537503971621:rulespackage/0-nZrAVuv8
+      SecurityBestPracticesRulesPackage: arn:aws:inspector:eu-central-1:537503971621:rulespackage/0-ZujVHEPB
+      RuntimeBehaviorRulesPackage: arn:aws:inspector:eu-central-1:537503971621:rulespackage/0-0GMUM6fg
+      ServiceAccountArn: arn:aws:iam::537503971621:root
+
+    eu-west-1:
+      CVERulesPackage: arn:aws:inspector:eu-west-1:357557129151:rulespackage/0-ubA5XvBh
+      CISRulesPackage: arn:aws:inspector:eu-west-1:357557129151:rulespackage/0-sJBhCr0F
+      SecurityBestPracticesRulesPackage: arn:aws:inspector:eu-west-1:357557129151:rulespackage/0-SnojL3Z6
+      RuntimeBehaviorRulesPackage: arn:aws:inspector:eu-west-1:357557129151:rulespackage/0-lLmwe1zd
+      ServiceAccountArn: arn:aws:iam::357557129151:root
+
+    eu-west-2:
+      CVERulesPackage: NotSupported
+      CISRulesPackage: NotSupported
+      SecurityBestPracticesRulesPackage: NotSupported
+      RuntimeBehaviorRulesPackage: NotSupported
+      ServiceAccountArn: NotSupported
+
+    eu-west-3:
+      CVERulesPackage: NotSupported
+      CISRulesPackage: NotSupported
+      SecurityBestPracticesRulesPackage: NotSupported
+      RuntimeBehaviorRulesPackage: NotSupported
+      ServiceAccountArn: NotSupported
+
+    sa-east-1:
+      CVERulesPackage: NotSupported
+      CISRulesPackage: NotSupported
+      SecurityBestPracticesRulesPackage: NotSupported
+      RuntimeBehaviorRulesPackage: NotSupported
+      ServiceAccountArn: NotSupported
+
+    us-east-1:
+      CVERulesPackage: arn:aws:inspector:us-east-1:316112463485:rulespackage/0-gEjTy7T7
+      CISRulesPackage: arn:aws:inspector:us-east-1:316112463485:rulespackage/0-rExsr2X8
+      SecurityBestPracticesRulesPackage: arn:aws:inspector:us-east-1:316112463485:rulespackage/0-R01qwB5Q
+      RuntimeBehaviorRulesPackage: arn:aws:inspector:us-east-1:316112463485:rulespackage/0-gBONHN9h
+      ServiceAccountArn: arn:aws:iam::316112463485:root
+
+    us-east-2:
+      CVERulesPackage: arn:aws:inspector:us-east-2:646659390643:rulespackage/0-JnA8Zp85
+      CISRulesPackage: arn:aws:inspector:us-east-2:646659390643:rulespackage/0-m8r61nnh
+      SecurityBestPracticesRulesPackage: arn:aws:inspector:us-east-2:646659390643:rulespackage/0-AxKmMHPX
+      RuntimeBehaviorRulesPackage: arn:aws:inspector:us-east-2:646659390643:rulespackage/0-UCYZFKPV
+      ServiceAccountArn: arn:aws:iam::646659390643:root
+
+    us-gov-west-1:
+      CVERulesPackage: NotSupported
+      CISRulesPackage: NotSupported
+      SecurityBestPracticesRulesPackage: NotSupported
+      RuntimeBehaviorRulesPackage: NotSupported
+      ServiceAccountArn: NotSupported
+
+    us-west-1:
+      CVERulesPackage: arn:aws:inspector:us-west-1:166987590008:rulespackage/0-TKgzoVOa
+      CISRulesPackage: arn:aws:inspector:us-west-1:166987590008:rulespackage/0-xUY8iRqX
+      SecurityBestPracticesRulesPackage: arn:aws:inspector:us-west-1:166987590008:rulespackage/0-byoQRFYm
+      RuntimeBehaviorRulesPackage: arn:aws:inspector:us-west-1:166987590008:rulespackage/0-yeYxlt0x
+      ServiceAccountArn: arn:aws:iam::166987590008:root
+
+    us-west-2:
+      CVERulesPackage: arn:aws:inspector:us-west-2:758058086616:rulespackage/0-9hgA516p
+      CISRulesPackage: arn:aws:inspector:us-west-2:758058086616:rulespackage/0-H5hpSawc
+      SecurityBestPracticesRulesPackage: arn:aws:inspector:us-west-2:758058086616:rulespackage/0-JJOtZiqQ
+      RuntimeBehaviorRulesPackage: arn:aws:inspector:us-west-2:758058086616:rulespackage/0-vg5GGHSD
+      ServiceAccountArn: arn:aws:iam::758058086616:root
+
+  SourceCode:
+    General:
+      S3Bucket: %%BUCKET_NAME%%
+      KeyPrefix: server-fleet-management-at-scale/%%VERSION%%
+
+
+#==================================================
+# Resources
+#==================================================
+Resources:
+
+  #==================================================
+  #Create an association to update the SSM agent
+  #==================================================
+  ConfigureInspectorAssociation:
+    Type: AWS::SSM::Association
+    Properties:
+      Name: AmazonInspector-ManageAWSAgent
+      AssociationName: ManageInspectorAgent
+      Parameters:
+        Operation:
+        - Install
+      Targets:
+        - Key: tag:Environment
+          Values:
+          - !Ref Environment
+      ScheduleExpression: rate(7 days)
+
+  #==================================================
+  # Inspector will post notifications to this SNS topic
+  # when assessments are completed.
+  #==================================================
+  InspectorNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: Inspector
+      TopicName: inspector-completion-notifications
+
+  # Only add the subscription if an email address was provided.
+  InspectorNotificationTopicSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: NotificationEmailAddressIsProvided
+    Properties:
+      TopicArn: !Ref InspectorNotificationTopic
+      Endpoint: !Ref NotificationEmailAddress
+      Protocol: email
+
+  InspectorNotificationTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Principal:
+            AWS: !FindInMap [InspectorSettings, !Ref "AWS::Region", ServiceAccountArn]
+          Action: sns:Publish
+          Resource: !Ref InspectorNotificationTopic
+      Topics:
+      - !Ref InspectorNotificationTopic
+
+  InspectorAgentIdNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: Inspector
+      TopicName: inspector-agent-id-notifications
+
+  #pull this out
+  InspectorAgentIdNotificationTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Principal:
+            AWS: !FindInMap [InspectorSettings, !Ref "AWS::Region", ServiceAccountArn]
+          Action: sns:Publish
+          Resource: !Ref InspectorAgentIdNotificationTopic
+      Topics:
+      - !Ref InspectorAgentIdNotificationTopic
+
+  #==================================================
+  # The following resources, Lambda function, and custom
+  # resource are used to support Inspector.
+  #==================================================
+  InspectorResourceGroup:
+    Type: AWS::Inspector::ResourceGroup
+    Properties:
+      ResourceGroupTags:
+      - Key: Environment
+        Value: !Ref Environment
+
+  InspectorAssessmentTarget:
+    Type: AWS::Inspector::AssessmentTarget
+    Properties:
+      AssessmentTargetName: !Ref Environment
+      ResourceGroupArn: !GetAtt InspectorResourceGroup.Arn
+
+  InspectorTemplate:
+    Type: AWS::Inspector::AssessmentTemplate
+    Properties:
+      AssessmentTargetArn: !Ref InspectorAssessmentTarget
+      AssessmentTemplateName: !Ref Environment
+      DurationInSeconds: 900
+      RulesPackageArns:
+        - !FindInMap [InspectorSettings, !Ref "AWS::Region", CVERulesPackage]
+        - !FindInMap [InspectorSettings, !Ref "AWS::Region", SecurityBestPracticesRulesPackage]
+        - !FindInMap [InspectorSettings, !Ref "AWS::Region", RuntimeBehaviorRulesPackage]
+        # The CIS rules package is not yet avaiable for Amazon Linux. Enable this
+        # when the feature is supported.
+        # - !FindInMap [InspectorSettings, !Ref "AWS::Region", CISRulesPackage]
+
+  CreateInspectorEventSubscriptionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: CreateInspectorResources
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - inspector:SubscribeToEvent
+                  # - inspector:StartAssessmentRun
+                Resource: "*"
+
+  #==================================================
+  # This custom Lambda function will create Inspector resources.
+  #==================================================
+  CreateInspectorEventSubscriptionFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: SFM-CreateInspectorResources
+      Description: Server Fleet Management Solution - subscribes Inspector to CloudWatch Event
+      Handler: sfm-subscribe-inspector-to-event.lambda_handler
+      MemorySize: 1024
+      Role: !GetAtt CreateInspectorEventSubscriptionRole.Arn
+      Runtime: python3.6
+      Timeout: 10
+      Environment:
+        Variables:
+          assessment_template_arn: !GetAtt InspectorTemplate.Arn
+          assessment_notification_topic_arn: !Ref InspectorNotificationTopic
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "sfm-subscribe-inspector-to-event.zip"]]
+
+
+  #==================================================
+  # CloudFormation uses this custom resource to invoke
+  # the Lambda function to create the Inspector resources.
+  #================================================
+  CreateInspectorResources:
+    Type: Custom::CreateInspectorResources
+    DependsOn: CreateInspectorEventSubscriptionFunction
+    Properties:
+      ServiceToken: !GetAtt CreateInspectorEventSubscriptionFunction.Arn
+
+  #================================================
+  # Scheduled Inspector job
+  # The assessment template ARN comes from the custom
+  # Lambda resource.
+  #================================================
+  ScheduledInspectorJobRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: StartAssessmentRun
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - inspector:StartAssessmentRun
+                Resource:
+                  - '*'
+
+  ScheduledInspectorJob:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Server Fleet Management Solution - Run Inspector Assessment Daily
+      ScheduleExpression: rate(1 day) # run daily
+      State: ENABLED
+      Targets:
+        -
+          Arn: !GetAtt CreateInspectorResources.AssessmentTemplateArn
+          RoleArn: !GetAtt ScheduledInspectorJobRole.Arn
+          Id: TargetRunV1
+
+  #================================================
+  # Listener for Inspector job completions
+  #================================================
+  RespondToInspectorFindingsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: InspectorAndSsm
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              Effect: Allow
+              Action:
+              - inspector:DescribeFindings
+              - inspector:ListAssessmentRunAgents
+              - inspector:ListFindings
+              - sns:Publish
+              - ssm:PutInventory
+              - xray:PutTelemetryRecords
+              - xray:PutTraceSegments
+              Resource:
+              - "*"
+
+  #==================================================
+  # This custom Lambda function is triggered by Inspector job completions
+  # and sends the findings to the instance SSM inventories.
+  #==================================================
+  RespondToInspectorAssessmentCompleteFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: SFM-RespondToInspectorAssessmentCompleteFunction
+      Description: |
+        Server Fleet Management Solution - Responds to Inspector assessment completion notifcations and invokes
+        the function to retrieve findings for each instance.
+      Handler: sfm-respond-to-inspector-assessment-complete.lambda_handler
+      MemorySize: 1024
+      Role: !GetAtt RespondToInspectorFindingsRole.Arn
+      Runtime: python3.6
+      Timeout: 180
+      Environment:
+        Variables:
+          assessment_agent_id_notification_topic_arn: !Ref InspectorAgentIdNotificationTopic
+          send_anonymous_data: !Sub ${SendAnonymousData}
+          uuid: !Sub ${UUID}
+      TracingConfig:
+        Mode: Active
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "sfm-respond-to-inspector-assessment-complete.zip"]]
+
+  #==================================================
+  # The RespondToInspectorFindings Lambda function will subscribe to the
+  # SNS topic to which Inspector publishes its job completion status.
+  #==================================================
+  RespondToInspectorFindingsNotification:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref InspectorNotificationTopic
+      Endpoint: !GetAtt RespondToInspectorAssessmentCompleteFunction.Arn
+      Protocol: lambda
+
+  #==================================================
+  # This permission allows SNS to trigger the Lambda function.
+  #==================================================
+  RespondToInspectorFindingsPolicy:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RespondToInspectorAssessmentCompleteFunction
+      Principal: sns.amazonaws.com
+      Action: lambda:InvokeFunction
+      SourceArn: !Ref InspectorNotificationTopic
+
+  #==================================================
+  # This custom Lambda function is triggered by the Lambda function that
+  # responds to Inspector assessment run completions and then sends the
+  # findings to the instance SSM inventories.
+  #==================================================
+  RespondToInspectorAgentIdFindingsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: SFM-RespondToInspectorAgentIdFindingsFunction
+      Description: |
+        Server Fleet Management Solution - Responds to Inspector findings and sends the inventory to SSM
+      Handler: sfm-respond-to-inspector-agent-id-findings.lambda_handler
+      MemorySize: 1024
+      Role: !GetAtt RespondToInspectorFindingsRole.Arn
+      Runtime: python3.6
+      Timeout: 180
+      Environment:
+        Variables:
+          assessment_agent_id_notification_topic_arn: !Ref InspectorAgentIdNotificationTopic
+      TracingConfig:
+        Mode: Active
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "sfm-respond-to-inspector-agent-id-findings.zip"]]
+
+  #==================================================
+  # The RespondToInspectorAgentIdFindingsFunction Lambda function will
+  # subscribe to the SNS topic to which the Lambda agent function publishes.
+  #==================================================
+  RespondToInspectorAgentIdFindingsFunctionNotification:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref InspectorAgentIdNotificationTopic
+      Endpoint: !GetAtt RespondToInspectorAgentIdFindingsFunction.Arn
+      Protocol: lambda
+
+  #==================================================
+  # This permission allows SNS to trigger the Lambda function.
+  #==================================================
+  RespondToInspectorAgentIdFindingsFunctionPolicy:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RespondToInspectorAgentIdFindingsFunction
+      Principal: sns.amazonaws.com
+      Action: lambda:InvokeFunction
+      SourceArn: !Ref InspectorAgentIdNotificationTopic
+
+
+#==================================================
+# Outputs
+#==================================================
+Outputs:
+
+  InspectorResourceGroup:
+    Export:
+      Name: !Sub ${AWS::StackName}-InspectorResourceGroup
+    Value: !Ref InspectorResourceGroup
+
+  InspectorAssessmentTarget:
+    Export:
+      Name: !Sub ${AWS::StackName}-InspectorAssessmentTarget
+    Value: !Ref InspectorAssessmentTarget
+
+  InspectorTemplate:
+    Export:
+      Name: !Sub ${AWS::StackName}-InspectorTemplate
+    Value: !Ref InspectorTemplate

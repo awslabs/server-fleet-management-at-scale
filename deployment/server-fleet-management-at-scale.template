@@ -1,0 +1,981 @@
+#===============================================================================
+# Template: server-fleet-management-at-scale.template
+#
+# Purpose:  Builds SSM resources for fleet management:
+#           - patch baseline
+#           - maintenance window
+#           - inventory association
+#           - resource bucket encryption key
+#           - resource bucket
+#           - resource sync
+#           - Inspector association
+#           - scheduled Inspector assessment runs
+#
+#
+#===============================================================================
+AWSTemplateFormatVersion: 2010-09-09
+
+#==================================================
+# Metadata
+#==================================================
+Metadata:
+
+  AWS::CloudFormation::Interface:
+
+    ParameterGroups:
+      - Label:
+          default: Settings
+        Parameters:
+          - Environment
+
+      - Label:
+          default: |
+            You can drop this reference implementation into your existing
+            infrastructure. You can also optionally create a sample fleet
+            of four instances, including the necessary networking resources.
+        Parameters:
+          - CreateFleet
+
+      - Label:
+          default: |
+            This reference implementation will use the Inspector vulnerability
+            management service in regions where it is supported. Otherwise,
+            the following settings will have no effect.
+        Parameters:
+          - NotificationEmailAddress
+
+    ParameterLabels:
+      Environment:
+        default: Managed Instances Tag Value
+
+      CreateFleet:
+        default: Create Sample Fleet?
+
+      NotificationEmailAddress:
+        default: Notification Email Address
+
+#==================================================
+# Parameters
+#==================================================
+Parameters:
+
+  Environment:
+    Description: |
+      AWS Systems Manager Actions capability will patch managed instances
+      with a tag name of "Patch Group" and will use the value you provide here.
+      AWS Systems Manager Insights capability will be performed on managed instances
+      with the tag name of "Environment" and will use the value you provide here.
+    Type: String
+    Default: Sample Fleet
+    MinLength: 1
+    MaxLength: 255
+    AllowedPattern: ^[a-zA-Z0-9+-=._:/@ ]*$
+    ConstraintDescription: |
+      Malformed Input Parameter: Environment must contain only upper and lower
+      case letters, numbers, and the characters '+,-,=,.,_,:,/,@'. Minimum length
+      is 1 and maximum length is 255.
+
+  CreateFleet:
+    Description: |
+      Creates a network and fleet of four instances that you can use for this
+      reference implementation. NOTE: The instances and some network resources
+      will incur a charge for their use.
+    Type: String
+    AllowedValues:
+      - "Yes"
+      - "No"
+    Default: "Yes"
+
+  NotificationEmailAddress:
+    Description: |
+      Notification email address used to receive Inspector assessment run
+      completion notifications. **NOTE**: You will receive a confirmation email
+      that you must accept in order to receive these notifications. (This feature
+      only applies if you launch the template in a region that supports Inspector.)
+    Type: String
+
+#==================================================
+# Conditions
+#==================================================
+Conditions:
+
+  CreateFleet: !Equals [!Ref CreateFleet, "Yes"]
+
+  #==================================================
+  # Source: https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/
+  #==================================================
+  RegionSupportsInspector: !Or
+    - !Equals [!Ref "AWS::Region", "us-east-1"]
+    - !Equals [!Ref "AWS::Region", "us-east-2"]
+    - !Equals [!Ref "AWS::Region", "us-west-1"]
+    - !Equals [!Ref "AWS::Region", "us-west-2"]
+    - !Equals [!Ref "AWS::Region", "eu-central-1"]
+    - !Equals [!Ref "AWS::Region", "eu-west-1"]
+    - !Equals [!Ref "AWS::Region", "ap-southeast-2"]
+    - !Equals [!Ref "AWS::Region", "ap-northeast-2"]
+    - !Equals [!Ref "AWS::Region", "ap-northeast-1"]
+    - !Equals [!Ref "AWS::Region", "ap-south-1"]
+
+#==================================================
+# Mappings
+#==================================================
+Mappings:
+
+  # The sample fleet will use the AMI ID appropriate to the region in which
+  # the stack is launched. These IDs should be periodically updated.
+  AWSAMIRegionMap:
+    AMI:
+      AMZNLINUXHVM: amzn-ami-hvm-*
+      WINDOWSSERVER2012: "Windows Server 2012 R2 English 64-bit"
+      UBUNTU1604HVM: ubuntu/images/hvm-ssd/ubuntu-xenial-16.04-amd64-server-20180306
+      RHEL75HVM: RHEL-7.5_HVM_GA-20180322-x86_64-1-Hourly2-GP2
+    ap-northeast-1:
+      UBUNTU1604HVM: ami-0d74386b
+      RHEL75HVM: ami-6b0d5f0d
+    ap-northeast-2:
+      UBUNTU1604HVM: ami-a414b9ca
+      RHEL75HVM: ami-3eee4150
+    ap-south-1:
+      UBUNTU1604HVM: ami-0189d76e
+      RHEL75HVM: ami-5b673c34
+    ap-southeast-1:
+      UBUNTU1604HVM: ami-52d4802e
+      RHEL75HVM: ami-76144b0a
+    ap-southeast-2:
+      UBUNTU1604HVM: ami-d38a4ab1
+      RHEL75HVM: ami-67589505
+    ca-central-1:
+      UBUNTU1604HVM: ami-ae55d2ca
+      RHEL75HVM: ami-49f0762d
+    eu-central-1:
+      UBUNTU1604HVM: ami-7c412f13
+      RHEL75HVM: ami-c86c3f23
+    eu-west-1:
+      UBUNTU1604HVM: ami-f90a4880
+      RHEL75HVM: ami-7c491f05
+    eu-west-2:
+      UBUNTU1604HVM: ami-f4f21593
+      RHEL75HVM: ami-7c1bfd1b
+    eu-west-3:
+      UBUNTU1604HVM: ami-0e55e373
+      RHEL75HVM: ami-5026902d
+    sa-east-1:
+      UBUNTU1604HVM: ami-423d772e
+      RHEL75HVM: ami-b0b7e3dc
+    us-east-1:
+      UBUNTU1604HVM: ami-43a15f3e
+      RHEL75HVM: ami-6871a115
+    us-east-2:
+      UBUNTU1604HVM: ami-916f59f4
+      RHEL75HVM: ami-03291866
+    us-west-1:
+      UBUNTU1604HVM: ami-925144f2
+      RHEL75HVM: ami-18726478
+    us-west-2:
+      UBUNTU1604HVM: ami-4e79ed36
+      RHEL75HVM: ami-223f945a
+
+  SourceCode:
+    General:
+      S3Bucket: "%%BUCKET_NAME%%"
+      KeyPrefix: "server-fleet-management-at-scale/%%VERSION%%"
+
+  Send:
+    AnonymousUsage:
+      Data: "Yes"
+
+#==================================================
+# Resources
+#==================================================
+Resources:
+
+  #==================================================
+  # SSM will use this role during the maintenance window
+  #==================================================
+  MaintenanceWindowServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ssm.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonSSMMaintenanceWindowRole
+      Policies:
+        - PolicyName: PassRole
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - '*'
+
+  #==================================================
+  # This defines a seven-day frequency for when the
+  # patches will be applied.
+  #==================================================
+  MaintenanceWindow:
+    Type: AWS::SSM::MaintenanceWindow
+    Properties:
+      Description: Server Fleet Management Solution Weekly Maintenance Window
+      AllowUnassociatedTargets: false
+      Cutoff: 1
+      Schedule: rate(7 days)
+      Duration: 2
+      Name: server-fleet-management-solution-weekly-patching
+
+  #==================================================
+  # This target defines the managed instances to patch
+  #==================================================
+  MaintenanceWindowTarget:
+    Type: AWS::SSM::MaintenanceWindowTarget
+    Properties:
+      Description: Server Fleet Management Solution Instances
+      WindowId: !Ref MaintenanceWindow
+      ResourceType: INSTANCE
+      Targets:
+        - Key: tag:Patch Group
+          Values:
+          - !Ref Environment
+
+  #==================================================
+  # This task installs the security patches
+  #==================================================
+  MaintenanceWindowTask:
+    Type: AWS::SSM::MaintenanceWindowTask
+    Properties:
+      Description: Runs Server Fleet Management Solution patch baseline
+      ServiceRoleArn: !GetAtt MaintenanceWindowServiceRole.Arn
+      MaxErrors: 1
+      TaskArn: AWS-RunPatchBaseline
+      MaxConcurrency: 100%
+      WindowId: !Ref MaintenanceWindow
+      Priority: 1
+      TaskType: RUN_COMMAND
+      TaskInvocationParameters:
+        MaintenanceWindowRunCommandParameters:
+          Comment: Runs patch baseline
+          TimeoutSeconds: 600
+          Parameters: {"Operation":["Install"]}
+          OutputS3BucketName: !Ref ArtifactBucket
+      Targets:
+      - Values:
+        - !Ref MaintenanceWindowTarget
+        Key: WindowTargetIds
+
+  #==================================================
+  # S3 bucket for saved SSM artifacts
+  #==================================================
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      AccessControl: Private
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              KMSMasterKeyID: !Ref ArtifactBucketEncryptionKey
+              SSEAlgorithm: aws:kms
+
+  #==================================================
+  # Create a KMS key to use for S3 object encryption
+  #==================================================
+  ArtifactBucketEncryptionKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: Key used for Server Fleet Management Solution artifact bucket
+      Enabled: true
+      EnableKeyRotation: true
+      KeyPolicy:
+        Statement:
+        - Sid: manage-key
+          Action:
+          - kms:*
+          Effect: Allow
+          Principal:
+            AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+          Resource: "*"
+        - Sid: ssm-access-policy-statement
+          Action:
+          - kms:GenerateDataKey
+          Effect: Allow
+          Principal:
+            Service: ssm.amazonaws.com
+          Resource: "*"
+
+  #==================================================
+  # Create an alias for the KMS key
+  # The alias is created here so that it is more easily
+  # identifiable in the console; key aliases cannot be
+  # used in policies.
+  #==================================================
+  ArtifactBucketEncryptionKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/ssm-bucket-encryption-key
+      TargetKeyId: !Ref ArtifactBucketEncryptionKey
+
+  #==================================================
+  # Allow the SSM service to use this bucket
+  #==================================================
+  ArtifactBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DeletionPolicy: Retain
+    Properties:
+      Bucket: !Ref ArtifactBucket
+      PolicyDocument:
+        Version: 2008-10-17
+        Statement:
+          - Sid: ArtifactBucketPermissionsCheck
+            Effect: Allow
+            Resource: !Sub ${ArtifactBucket.Arn}
+            Principal:
+              Service: ssm.amazonaws.com
+            Action:
+              - s3:GetBucketAcl
+          - Sid: ArtifactBucketDelivery
+            Effect: Allow
+            Resource: !Sub ${ArtifactBucket.Arn}/*
+            Principal:
+              Service: ssm.amazonaws.com
+            Action:
+              - s3:PutObject
+            Condition:
+              StringEquals:
+                s3:x-amz-acl: bucket-owner-full-control
+              # StringEquals:
+              #   s3:x-amz-server-side-encryption: aws:kms
+              #   s3:x-amz-server-side-encryption-aws-kms-key-id: !GetAtt ArtifactBucketEncryptionKey.Arn
+
+  #==================================================
+  # Create an association to gather instance inventory
+  #==================================================
+  InventoryAssociation:
+    Type: AWS::SSM::Association
+    Properties:
+      Name: AWS-GatherSoftwareInventory
+      AssociationName: GatherSoftwareInventory
+      Targets:
+        - Key: tag:Environment
+          Values:
+          - !Ref Environment
+      ScheduleExpression: rate(1 day)
+      Parameters:
+        # The files that are collected are OS-specific.
+        files:
+        - '[
+            {
+              "Path": "/usr/bin",
+              "Pattern": [
+                "aws*",
+                "*ssm*"
+              ],
+              "Recursive": false
+            },
+            {
+              "Path": "/var/log",
+              "Pattern": [
+                "amazon*.*"
+              ],
+              "Recursive": true,
+              "DirScanLimit": 1000
+            }
+          ]'
+        windowsUpdates:
+        - Enabled
+        awsComponents:
+        - Enabled
+        customInventory:
+        - Enabled
+        networkConfig:
+        - Enabled
+        windowsRegistry:
+        - '[{"Path":"HKEY_LOCAL_MACHINE\SOFTWARE\Amazon","Recursive":true}]'
+        applications:
+        - Enabled
+        instanceDetailedInformation:
+        - Enabled
+        services:
+        - Enabled
+        windowsRoles:
+        - Enabled
+
+  #==================================================
+  # Store the managed instance tag value in Parameter Store
+  #==================================================
+  ManagedInstanceTagValueParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: ManagedInstanceTagValue
+      Value: !Ref Environment
+      Type: String
+      Description: Environment tag value given to Server Fleet Management Solution managed instances
+
+  #==================================================
+  # The following service role, Lambda function, and custom resource are used
+  # to create an SSM resource sync; CloudFormation does not currently support the
+  # creation of resource syncs intrinsically.
+  #==================================================
+  CreateResourceSyncServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: CreateResourceSync
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:CreateResourceDataSync
+                  - ssm:DeleteResourceDataSync
+                  - ssm:ListResourceDataSync
+                Resource: "*"
+
+  #==================================================
+  # This custom Lambda function will create a resource sync.
+  #==================================================
+  CreateSSMResourceSyncFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: SFM-CreateSSMResourceSync
+      Description: Server Fleet Management Solution - creates the resource data sync
+      Handler: sfm-resource-data-sync.lambda_handler
+      MemorySize: 1024
+      Role: !GetAtt CreateResourceSyncServiceRole.Arn
+      Runtime: python3.6
+      Timeout: 10
+      Environment:
+        Variables:
+          artifact_bucket_name: !Ref ArtifactBucket
+          artifact_bucket_encryption_key_arn: !GetAtt ArtifactBucketEncryptionKey.Arn
+      Code:
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "sfm-resource-data-sync.zip"]]
+
+  #==================================================
+  # CloudFormation uses this custom resource to invoke
+  # the Lambda function to create a resource sync.
+  #================================================
+  CreateResourceSyncResource:
+    Type: Custom::CreateResourceSync
+    DependsOn: CreateSSMResourceSyncFunction
+    Properties:
+      ServiceToken: !GetAtt CreateSSMResourceSyncFunction.Arn
+
+  #============================================================================
+  #
+  # INSPECTOR
+  #
+  # This section creates the resources for creating and managing Inspector
+  # assessments.
+  #
+  #============================================================================
+
+  InspectorStack:
+    Type: AWS::CloudFormation::Stack
+    Condition: RegionSupportsInspector
+    Properties:
+      TemplateURL: { "Fn::Join": [ "", [ "https://s3.amazonaws.com/", "%%BUCKET_NAME%%", "-", { "Ref": "AWS::Region" } , "/server-fleet-management-at-scale/%%VERSION%%/server-fleet-management-at-scale-inspector.template" ] ] }
+      Parameters:
+        Environment: !Ref Environment
+        NotificationEmailAddress: !Ref NotificationEmailAddress
+        UUID: !Sub ${CreateUniqueID.UUID}
+        SendAnonymousData: !FindInMap ["Send", "AnonymousUsage", "Data"]
+
+  #==================================================
+  #
+  # SAMPLE FLEET
+  #
+  # These networking resources will be created if the option was chosen
+  # to do so. This section includes:
+  #   - a VPC
+  #   - an internet gateway
+  #   - a NAT gateway
+  #   - a route and route table
+  #   - a public subnet (for the NAT gateway)
+  #   - a private subnet for sample instances
+  #   - an auto scaling group with four sample instances
+  #   - a launch configuration
+  #   - a security group
+  #==================================================
+  VPC:
+    Type: AWS::EC2::VPC
+    Condition: CreateFleet
+    Properties:
+      CidrBlock: !Sub 10.0.0.0/16
+      Tags:
+      - Key: Name
+        Value: Sample Fleet VPC
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Condition: CreateFleet
+    Properties:
+      Tags:
+      - Key: Name
+        Value: Sample Fleet Internet Gateway
+      - Key: Network
+        Value: Public
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Condition: CreateFleet
+    Properties:
+      VpcId:
+        Ref: VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  #==================================================
+  # Public subnet for the NAT Gateway
+  #==================================================
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Condition: CreateFleet
+    Properties:
+      VpcId:
+        Ref: VPC
+      CidrBlock: 10.0.0.0/22
+      AvailabilityZone: !Select [0, !GetAZs ""] # Get the first AZ by default.
+      Tags:
+      - Key: Name
+        Value: Sample Fleet Public Subnet
+      - Key: Network
+        Value: Public
+      MapPublicIpOnLaunch: true
+
+  PublicSubnetRouteTable:
+    Type: AWS::EC2::RouteTable
+    Condition: CreateFleet
+    Properties:
+      VpcId:
+        Ref: VPC
+      Tags:
+      - Key: Name
+        Value: Sample Fleet Public Subnet
+      - Key: Network
+        Value: Public
+
+  PublicSubnetRoute:
+    Type: AWS::EC2::Route
+    Condition: CreateFleet
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicSubnetRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: CreateFleet
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicSubnetRouteTable
+
+  #==================================================
+  # Private subnet for the EC2 instances
+  #==================================================
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Condition: CreateFleet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.64.0/20
+      AvailabilityZone: !Select [0, !GetAZs ""] # Get the first AZ by default.
+      Tags:
+      - Key: Name
+        Value: Sample Fleet Private Subnet
+      - Key: Network
+        Value: Private
+
+  PrivateSubnetRouteTable:
+    Type: AWS::EC2::RouteTable
+    Condition: CreateFleet
+    Properties:
+      VpcId:
+        Ref: VPC
+      Tags:
+      - Key: Name
+        Value: Sample Fleet Private Subnet
+      - Key: Network
+        Value: Private
+
+  PrivateSubnetRoute:
+    Type: AWS::EC2::Route
+    Condition: CreateFleet
+    Properties:
+      RouteTableId: !Ref PrivateSubnetRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGateway
+
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: CreateFleet
+    Properties:
+      SubnetId: !Ref PrivateSubnet
+      RouteTableId: !Ref PrivateSubnetRouteTable
+
+  #==================================================
+  # NAT Gateway
+  #==================================================
+  NatEip:
+    Type: AWS::EC2::EIP
+    Condition: CreateFleet
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      Domain: vpc
+
+  NATGateway:
+    Type: AWS::EC2::NatGateway
+    Condition: CreateFleet
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      AllocationId: !GetAtt NatEip.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+      - Key: Name
+        Value: Sample Fleet NAT Gateway
+
+  #========================================================
+  # Security group that will restrict traffic to 80 and 443
+  #========================================================
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: CreateFleet
+    Properties:
+      GroupDescription: Allow port access to Server Fleet Management Solution managed instances
+      VpcId: !Ref VPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: Sample Fleet Security Group
+
+  #==================================================
+  # IAM role to be used by the application instances
+  # The role needs to interact with SSM for remote
+  # command execution.
+  #==================================================
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Condition: CreateFleet
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [ec2.amazonaws.com]
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM
+
+  #==================================================
+  # IAM profile to be used by the application instances
+  #==================================================
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Condition: CreateFleet
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  #==================================================
+  # Instances of various OS supported by SSM
+  #==================================================
+  RHEL75:
+    Type: AWS::EC2::Instance
+    Condition: CreateFleet
+    Properties:
+      IamInstanceProfile: !Ref InstanceProfile
+      ImageId: !FindInMap [ AWSAMIRegionMap, !Ref "AWS::Region", RHEL75HVM ]
+      InstanceType: t2.large
+      NetworkInterfaces:
+        - DeleteOnTermination: true
+          Description: ENI for RHEL7.5 Sample Fleet instance
+          DeviceIndex: '0'
+          SubnetId: !Ref 'PrivateSubnet'
+          GroupSet:
+          - !Ref 'InstanceSecurityGroup'
+      Tags:
+        - Key: Name
+          Value: Server Fleet Management Solution Sample Fleet Instance
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Patch Group
+          Value: !Ref Environment
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            mkdir /tmp/ssm
+            cd /tmp/ssm
+            yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm
+
+  Ubuntu1604:
+    Type: AWS::EC2::Instance
+    Condition: CreateFleet
+    Properties:
+      IamInstanceProfile: !Ref InstanceProfile
+      ImageId: !FindInMap [ AWSAMIRegionMap, !Ref "AWS::Region", UBUNTU1604HVM ]
+      InstanceType: t2.large
+      NetworkInterfaces:
+        - DeleteOnTermination: true
+          Description: ENI for Ubuntu 16.04 Sample Fleet instance
+          DeviceIndex: '0'
+          SubnetId: !Ref 'PrivateSubnet'
+          GroupSet:
+          - !Ref 'InstanceSecurityGroup'
+      Tags:
+        - Key: Name
+          Value: Server Fleet Management Solution Sample Fleet Instance
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Patch Group
+          Value: !Ref Environment
+      UserData:
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            mkdir /tmp/ssm
+            cd /tmp/ssm
+            wget https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
+            dpkg -i amazon-ssm-agent.deb
+
+  AMZNLinux:
+    Type: AWS::EC2::Instance
+    Condition: CreateFleet
+    Properties:
+      IamInstanceProfile: !Ref InstanceProfile
+      ImageId: !GetAtt LinuxAMIInfo.Id
+      InstanceType: t2.large
+      NetworkInterfaces:
+        - DeleteOnTermination: true
+          Description: ENI for Amazon Linux Sample Fleet instance
+          DeviceIndex: '0'
+          SubnetId: !Ref 'PrivateSubnet'
+          GroupSet:
+          - !Ref 'InstanceSecurityGroup'
+      Tags:
+        - Key: Name
+          Value: Server Fleet Management Solution Sample Fleet Instance
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Patch Group
+          Value: !Ref Environment
+
+  Windows2012:
+    Type: AWS::EC2::Instance
+    Condition: CreateFleet
+    Properties:
+      IamInstanceProfile: !Ref InstanceProfile
+      ImageId: !GetAtt WindowsAMIInfo.Id
+      InstanceType: t2.large
+      NetworkInterfaces:
+        - DeleteOnTermination: true
+          Description: ENI for Windows 2016 Sample Fleet instance
+          DeviceIndex: '0'
+          SubnetId: !Ref 'PrivateSubnet'
+          GroupSet:
+          - !Ref 'InstanceSecurityGroup'
+      Tags:
+        - Key: Name
+          Value: Server Fleet Management Solution Sample Fleet Instance
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Patch Group
+          Value: !Ref Environment
+
+#==================================================
+# AMI of Windows and Linux at Runtime
+#==================================================
+  WindowsAMIInfoFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: !Sub solutions-${AWS::Region}
+        S3Key: "library/amilookup/amilookup-win.zip"
+      Handler: !Sub "amilookup-win.handler"
+      Runtime: nodejs8.10
+      Timeout: 30
+      Role: !GetAtt LambdaExecutionRole.Arn
+
+  LinuxAMIInfoFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: !Sub solutions-${AWS::Region}
+        S3Key: "library/amilookup/amilookup.zip"
+      Handler: !Sub "amilookup.handler"
+      Runtime: nodejs8.10
+      Timeout: 30
+      Role: !GetAtt LambdaExecutionRole.Arn
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:*
+          - Effect: Allow
+            Action:
+            - ec2:DescribeImages
+            Resource: "*"
+
+  WindowsAMIInfo:
+    Type: Custom::WindowsAMIInfo
+    Properties:
+      ServiceToken: !GetAtt WindowsAMIInfoFunction.Arn
+      Region: !Ref "AWS::Region"
+      OSName: !FindInMap [ AWSAMIRegionMap, AMI, WINDOWSSERVER2012 ]
+
+  LinuxAMIInfo:
+    Type: Custom::LinuxAMIInfo
+    Properties:
+      ServiceToken: !GetAtt LinuxAMIInfoFunction.Arn
+      Region: !Ref "AWS::Region"
+      Architecture: "HVM64"
+
+#==================================================
+# Solution Helper
+#==================================================
+  SolutionHelper:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: solution-helper.lambda_handler
+      Role: !Sub ${SolutionHelperRole.Arn}
+      Description: This function is a CloudFormation custom lambda resource that
+        generates UUID for each deployment.
+      Code:
+       S3Bucket: !Sub solutions-${AWS::Region}
+       S3Key: library/solution-helper/v3/solution-helper.zip
+      Runtime: python2.7
+      Timeout: 300
+
+  SolutionHelperRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Path: /
+      Policies:
+      - PolicyName: Helper_Permissions
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*
+
+  CreateUniqueID:
+    Type: Custom::LoadLambda
+    Properties:
+      ServiceToken: !Sub ${SolutionHelper.Arn}
+      Region: !Sub ${AWS::Region}
+      CreateUniqueID: 'true'
+
+  SendData:
+    Type: Custom::LoadLambda
+    Properties:
+      ServiceToken: !Sub ${SolutionHelper.Arn}
+      Region: !Sub ${AWS::Region}
+      SendAnonymousData:
+        UUID: !Sub ${CreateUniqueID.UUID}
+        Data:
+          SendAnonymousData: !FindInMap ["Send", "AnonymousUsage", "Data"]
+          Version: 1
+
+#==================================================
+# Outputs
+#==================================================
+Outputs:
+
+  MaintenanceWindow:
+    Export:
+      Name: !Sub ${AWS::StackName}-MaintenanceWindow
+    Value: !Ref MaintenanceWindow
+
+  ArtifactBucket:
+    Export:
+      Name: !Sub ${AWS::StackName}-ArtifactBucket
+    Value: !Ref ArtifactBucket
+
+  ArtifactBucketEncryptionKey:
+    Export:
+      Name: !Sub ${AWS::StackName}-ArtifactBucketEncryptionKey
+    Value: !Ref ArtifactBucketEncryptionKey
+
+  ArtifactBucketEncryptionKeyAlias:
+    Export:
+      Name: !Sub ${AWS::StackName}-ArtifactBucketEncryptionKeyAlias
+    Value: !Ref ArtifactBucketEncryptionKeyAlias
+
+  ManagedInstanceTagValueParameter:
+    Export:
+      Name: !Sub ${AWS::StackName}-ManagedInstanceTagValueParameter
+    Value: !Ref ManagedInstanceTagValueParameter
+
+  VPC:
+    Condition: CreateFleet
+    Export:
+      Name: !Sub ${AWS::StackName}-VPC
+    Value: !Ref VPC
+
+  CreateFleet:
+    Export:
+      Name: !Sub ${AWS::StackName}-CreateFleet
+    Value: !Ref CreateFleet
+
+  UUID:
+    Description: Anonymous UUID for each stack deployment
+    Value: !Sub ${CreateUniqueID.UUID}
