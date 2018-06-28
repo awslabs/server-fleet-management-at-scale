@@ -10,6 +10,7 @@
 #
 #===============================================================================
 AWSTemplateFormatVersion: 2010-09-09
+Description: "(SO0043ins) - The AWS CloudFormation template for deployment of the Server Fleet Management at Scale [Inspector]. Version 1.0"
 
 #==================================================
 # Metadata

@@ -14,6 +14,7 @@
 #
 #===============================================================================
 AWSTemplateFormatVersion: 2010-09-09
+Description: "(SO0043) - The AWS CloudFormation template for deployment of the Server Fleet Management at Scale. Version 1.0"
 
 #==================================================
 # Metadata
