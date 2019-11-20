@@ -185,11 +185,18 @@ Mappings:
       ServiceAccountArn: arn:aws:iam::646659390643:root
 
     us-gov-west-1:
-      CVERulesPackage: NotSupported
-      CISRulesPackage: NotSupported
-      SecurityBestPracticesRulesPackage: NotSupported
-      RuntimeBehaviorRulesPackage: NotSupported
-      ServiceAccountArn: NotSupported
+      CVERulesPackage: arn:aws-us-gov:inspector:us-gov-west-1:850862329162:rulespackage/0-4oQgcI4G
+      CISRulesPackage: arn:aws-us-gov:inspector:us-gov-west-1:850862329162:rulespackage/0-Ac4CFOuc
+      SecurityBestPracticesRulesPackage: arn:aws-us-gov:inspector:us-gov-west-1:850862329162:rulespackage/0-rOTGqe5G
+      RuntimeBehaviorRulesPackage: arn:aws-us-gov:inspector:us-gov-west-1:850862329162:rulespackage/0-JMyjuzoW
+      ServiceAccountArn: arn:aws-us-gov:iam::850862329162:root
+
+    us-gov-east-1:
+      CVERulesPackage: arn:aws-us-gov:inspector:us-gov-east-1:206278770380:rulespackage/0-3IFKFuOb
+      CISRulesPackage: arn:aws-us-gov:inspector:us-gov-east-1:206278770380:rulespackage/0-pTLCdIww
+      SecurityBestPracticesRulesPackage: arn:aws-us-gov:inspector:us-gov-east-1:206278770380:rulespackage/0-vlgEGcVD
+      RuntimeBehaviorRulesPackage: arn:aws-us-gov:inspector:us-gov-east-1:206278770380:rulespackage/0-850TmCFX
+      ServiceAccountArn: arn:aws-us-gov:iam::206278770380:root
 
     us-west-1:
       CVERulesPackage: arn:aws:inspector:us-west-1:166987590008:rulespackage/0-TKgzoVOa
@@ -431,7 +438,7 @@ Resources:
             Action:
               - sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
         - PolicyName: InspectorAndSsm
           PolicyDocument:
