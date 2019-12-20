@@ -1,63 +1,57 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-##############################################################################
-#  Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.   #
-#                                                                            #
-#  Licensed under the Amazon Software License (the "License"). You may not   #
-#  use this file except in compliance with the License. A copy of the        #
-#  License is located at                                                     #
-#                                                                            #
-#      http://aws.amazon.com/asl/                                            #
-#                                                                            #
-#  or in the "license" file accompanying this file. This file is distributed #
-#  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,        #
-#  express or implied. See the License for the specific language governing   #
-#  permissions and limitations under the License.                            #
-##############################################################################
+###################################################################################
+#  Copyright 2018-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.   #
+#                                                                                 #
+#  Licensed under the Apache License, Version 2.0 (the "License").                #
+#  You may not use this file except in compliance with the License.               #
+#  A copy of the License is located at                                            #
+#                                                                                 #
+#      http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                                 #
+#  or in the "license" file accompanying this file. This file is distributed      #
+#  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either      #
+#  express or implied. See the License for the specific language governing        #
+#  permissions and limitations under the License.                                 #
+###################################################################################
+
 import logging
 import json
 import boto3
 import os
-import botocore
-from botocore.vendored import requests
 
-SUCCESS = 'SUCCESS'
-FAILED = 'FAILED'
+from urllib import request, parse
 
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
-def send(event, context, responseStatus, responseData, physicalResourceId=None, noEcho=False):
-    responseUrl = event['ResponseURL']
+client = boto3.client('inspector')
 
-    logger.info(responseUrl)
-
-    responseBody = {}
-    responseBody['Status'] = responseStatus
-    responseBody['Reason'] = 'See the details in CloudWatch Log Stream: ' + context.log_stream_name
-    responseBody['PhysicalResourceId'] = physicalResourceId or context.log_stream_name
-    responseBody['StackId'] = event['StackId']
-    responseBody['RequestId'] = event['RequestId']
-    responseBody['LogicalResourceId'] = event['LogicalResourceId']
-    responseBody['NoEcho'] = noEcho
-    responseBody['Data'] = responseData
-
-    json_responseBody = json.dumps(responseBody)
-
-    logger.info("Response body:\n" + json_responseBody)
-
-    headers = {
-        'content-type' : '',
-        'content-length' : str(len(json_responseBody))
-    }
-
+def send(event, context, response_status, response_data):
     try:
-        response = requests.put(responseUrl,
-                                data=json_responseBody,
-                                headers=headers)
-        logger.info("Status code: " + response.reason)
+        response_body = json.dumps({
+            "Status": response_status,
+            "Reason": 'See the details in CloudWatch Log Stream: {}'.format(context.log_stream_name),
+            "PhysicalResourceId": context.log_stream_name,
+            "StackId": event['StackId'],
+            "RequestId": event['RequestId'],
+            "LogicalResourceId": event['LogicalResourceId'],
+            "Data": response_data
+        })
+
+        logger.info('Response URL: {}'.format(event['ResponseURL']))
+        logger.info('Response Body: {}'.format(response_body))
+
+        data = response_body.encode('utf-8')
+        req = request.Request(event['ResponseURL'], data=data, method='PUT')
+        req.add_header('Content-Type', '')
+        req.add_header('Content-Length', len(response_body))
+        response = request.urlopen(req)
+
+        logger.info('Status code: {}'.format(response.getcode()))
+        logger.info('Status message: {}'.format(response.msg))
     except Exception as e:
-        logger.error("send(..) failed executing requests.put(..): " + str(e))
+        logger.error('Custom resource send_response error: {}'.format(e))
 
 #==================================================
 # Default handler
@@ -76,42 +70,36 @@ def lambda_handler(event, context):
         assessment_template_arn = os.environ['assessment_template_arn']
         logger.debug('assessment template arn: {}'.format(assessment_template_arn))
     else:
-        raise
+        logger.error('No assessment_template_arn found.')
+        send(event, context, 'FAILED', {"error": 'No assessment_template_arn found.'})
+        return
 
     if 'assessment_notification_topic_arn' in os.environ:
         assessment_notification_topic_arn = os.environ['assessment_notification_topic_arn']
         logger.debug('assessment_notification_topic_arn: {}'.format(assessment_notification_topic_arn))
     else:
-        raise
+        logger.error('No assessment_notification_topic_arn found.')
+        send(event, context, 'FAILED', {"error": 'No assessment_notification_topic_arn found.'})
+        return
 
-    if 'RequestType' in event:
+    try:
+        if event['ResourceType'] == 'Custom::CreateInspectorResources' and event['RequestType'] in ['Create', 'Update']:
+            logger.info('CFN request type: {}'.format(event['RequestType']))
 
-        if event['RequestType'] in ['Create', 'Update']:
-            try:
-                logger.info('CFN request type: {}'.format(event['RequestType']))
+            # Add a notification for the assessment runs.
+            logger.debug('Subscribing Inspector to CloudWatch event')
+            logger.debug('resource arn: {}'.format(assessment_template_arn))
+            logger.debug('event: ASSESSMENT_RUN_COMPLETED')
+            logger.debug('topic arn: {}'.format(assessment_notification_topic_arn))
 
-                client = boto3.client('inspector')
+            client.subscribe_to_event(
+                resourceArn = assessment_template_arn,
+                event = 'ASSESSMENT_RUN_COMPLETED',
+                topicArn = assessment_notification_topic_arn
+            )
 
-                # Add a notification for the assessment runs.
-                logger.debug('Subscribing Inspector to CloudWatch event')
-                logger.debug('resource arn: {}'.format(assessment_template_arn))
-                logger.debug('event: ASSESSMENT_RUN_COMPLETED')
-                logger.debug('topic arn: {}'.format(assessment_notification_topic_arn))
+            logger.info('Successfully subscribed Inspector to CloudWatch event')
+    except Exception as e:
+        logger.error('Failed to subscribe Inspector to CloudWatch event: {}'.format(e))
 
-                response = client.subscribe_to_event(
-                    resourceArn = assessment_template_arn,
-                    event = 'ASSESSMENT_RUN_COMPLETED',
-                    topicArn = assessment_notification_topic_arn
-                )
-
-                logger.info('Successfully subscribed Inspector to CloudWatch event')
-
-            except botocore.exceptions.ClientError as e:
-                logger.error('Failed to subscribe Inspector to CloudWatch event: {}'.format(e))
-
-        elif event['RequestType'] in ['Delete']:
-            pass # CloudFornmation will automatically delete this function
-
-    send(event, context, SUCCESS, {"AssessmentTemplateArn":assessment_template_arn}, '')
-    # JRS - I THINK ANYTHING BELOW THE SEND FUNCTION IS IGNORED
-    #return {"AssessmentTemplateArn":assessment_template_arn}
+    send(event, context, 'SUCCESS', {"AssessmentTemplateArn": assessment_template_arn})

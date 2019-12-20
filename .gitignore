@@ -1,0 +1,9 @@
+**/dist
+**/open-source
+**/.zip
+**/.DS_Store
+**/.idea
+**/.log
+**/.vscode
+**/global-s3-assets
+**/regional-s3-assets

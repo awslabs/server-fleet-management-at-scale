@@ -10,7 +10,7 @@
 #
 #===============================================================================
 AWSTemplateFormatVersion: 2010-09-09
-Description: "(SO0043ins) - The AWS CloudFormation template for deployment of the Server Fleet Management at Scale [Inspector]. Version 1.0"
+Description: "(SO0043ins) - The AWS CloudFormation template for deployment of the Server Fleet Management at Scale [Inspector]. Version %%VERSION%%"
 
 #==================================================
 # Metadata
@@ -65,11 +65,6 @@ Parameters:
       To send or not to send anonymous usage data. Passed from the primary template.
     Type: String
 
-
-
-
-
-
 #==================================================
 # Conditions
 #==================================================
@@ -92,124 +87,168 @@ Mappings:
   # http://docs.aws.amazon.com/inspector/latest/userguide/inspector_assessments.html for Inspector account ARNs for SNS
   #==================================================
   InspectorSettings:
+    # Hong Kong
+    ap-east-1:
+      CVERulesPackage: NotSupported
+      CISRulesPackage: NotSupported
+      NetworkReachabilityPackage: NotSupported
+      SecurityBestPracticesRulesPackage: NotSupported
+      ServiceAccountArn: NotSupported
 
+    # Tokyo
     ap-northeast-1:
       CVERulesPackage: arn:aws:inspector:ap-northeast-1:406045910587:rulespackage/0-gHP9oWNT
       CISRulesPackage: arn:aws:inspector:ap-northeast-1:406045910587:rulespackage/0-7WNjqgGu
+      NetworkReachabilityPackage: arn:aws:inspector:ap-northeast-1:406045910587:rulespackage/0-YI95DVd7
       SecurityBestPracticesRulesPackage: arn:aws:inspector:ap-northeast-1:406045910587:rulespackage/0-bBUQnxMq
-      RuntimeBehaviorRulesPackage: arn:aws:inspector:ap-northeast-1:406045910587:rulespackage/0-knGBhqEu
       ServiceAccountArn: arn:aws:iam::406045910587:root
 
+    # Seoul
     ap-northeast-2:
       CVERulesPackage: arn:aws:inspector:ap-northeast-2:526946625049:rulespackage/0-PoGHMznc
       CISRulesPackage: arn:aws:inspector:ap-northeast-2:526946625049:rulespackage/0-T9srhg1z
+      NetworkReachabilityPackage: arn:aws:inspector:ap-northeast-2:526946625049:rulespackage/0-s3OmLzhL
       SecurityBestPracticesRulesPackage: arn:aws:inspector:ap-northeast-2:526946625049:rulespackage/0-2WRpmi4n
-      RuntimeBehaviorRulesPackage: arn:aws:inspector:ap-northeast-2:526946625049:rulespackage/0-PoYq7lI7
       ServiceAccountArn: arn:aws:iam::526946625049:root
 
+    # Mumbai
     ap-south-1:
       CVERulesPackage: arn:aws:inspector:ap-south-1:162588757376:rulespackage/0-LqnJE9dO
       CISRulesPackage: arn:aws:inspector:ap-south-1:162588757376:rulespackage/0-PSUlX14m
+      NetworkReachabilityPackage: arn:aws:inspector:ap-south-1:162588757376:rulespackage/0-YxKfjFu1
       SecurityBestPracticesRulesPackage: arn:aws:inspector:ap-south-1:162588757376:rulespackage/0-fs0IZZBj
-      RuntimeBehaviorRulesPackage: arn:aws:inspector:ap-south-1:162588757376:rulespackage/0-EhMQZy6C
       ServiceAccountArn: arn:aws:iam::162588757376:root
 
+    # Singapore
     ap-southeast-1:
       CVERulesPackage: NotSupported
       CISRulesPackage: NotSupported
+      NetworkReachabilityPackage: NotSupported
       SecurityBestPracticesRulesPackage: NotSupported
-      RuntimeBehaviorRulesPackage: NotSupported
       ServiceAccountArn: NotSupported
 
+    # Sydney
     ap-southeast-2:
       CVERulesPackage: arn:aws:inspector:ap-southeast-2:454640832652:rulespackage/0-D5TGAxiR
       CISRulesPackage: arn:aws:inspector:ap-southeast-2:454640832652:rulespackage/0-Vkd2Vxjq
+      NetworkReachabilityPackage: arn:aws:inspector:ap-southeast-2:454640832652:rulespackage/0-FLcuV4Gz
       SecurityBestPracticesRulesPackage: arn:aws:inspector:ap-southeast-2:454640832652:rulespackage/0-asL6HRgN
-      RuntimeBehaviorRulesPackage: arn:aws:inspector:ap-southeast-2:454640832652:rulespackage/0-P8Tel2Xj
       ServiceAccountArn: arn:aws:iam::454640832652:root
 
+    # Canada Central
     ca-central-1:
       CVERulesPackage: NotSupported
       CISRulesPackage: NotSupported
+      NetworkReachabilityPackage: NotSupported
       SecurityBestPracticesRulesPackage: NotSupported
-      RuntimeBehaviorRulesPackage: NotSupported
       ServiceAccountArn: NotSupported
 
+    # Frankfurt
     eu-central-1:
       CVERulesPackage: arn:aws:inspector:eu-central-1:537503971621:rulespackage/0-wNqHa8M9
       CISRulesPackage: arn:aws:inspector:eu-central-1:537503971621:rulespackage/0-nZrAVuv8
+      NetworkReachabilityPackage: arn:aws:inspector:eu-central-1:537503971621:rulespackage/0-6yunpJ91
       SecurityBestPracticesRulesPackage: arn:aws:inspector:eu-central-1:537503971621:rulespackage/0-ZujVHEPB
-      RuntimeBehaviorRulesPackage: arn:aws:inspector:eu-central-1:537503971621:rulespackage/0-0GMUM6fg
       ServiceAccountArn: arn:aws:iam::537503971621:root
 
+    # Stockholm
+    eu-north-1:
+      CVERulesPackage: arn:aws:inspector:eu-north-1:453420244670:rulespackage/0-IgdgIewd
+      CISRulesPackage: arn:aws:inspector:eu-north-1:453420244670:rulespackage/0-Yn8jlX7f
+      NetworkReachabilityPackage: arn:aws:inspector:eu-north-1:453420244670:rulespackage/0-52Sn74uu
+      SecurityBestPracticesRulesPackage: arn:aws:inspector:eu-north-1:453420244670:rulespackage/0-HfBQSbSf
+      ServiceAccountArn: arn:aws:iam::453420244670:root
+
+    # Ireland
     eu-west-1:
       CVERulesPackage: arn:aws:inspector:eu-west-1:357557129151:rulespackage/0-ubA5XvBh
       CISRulesPackage: arn:aws:inspector:eu-west-1:357557129151:rulespackage/0-sJBhCr0F
+      NetworkReachabilityPackage: arn:aws:inspector:eu-west-1:357557129151:rulespackage/0-SPzU33xe
       SecurityBestPracticesRulesPackage: arn:aws:inspector:eu-west-1:357557129151:rulespackage/0-SnojL3Z6
-      RuntimeBehaviorRulesPackage: arn:aws:inspector:eu-west-1:357557129151:rulespackage/0-lLmwe1zd
       ServiceAccountArn: arn:aws:iam::357557129151:root
 
+    # London
     eu-west-2:
-      CVERulesPackage: NotSupported
-      CISRulesPackage: NotSupported
-      SecurityBestPracticesRulesPackage: NotSupported
-      RuntimeBehaviorRulesPackage: NotSupported
-      ServiceAccountArn: NotSupported
+      CVERulesPackage: arn:aws:inspector:eu-west-2:146838936955:rulespackage/0-kZGCqcE1
+      CISRulesPackage: arn:aws:inspector:eu-west-2:146838936955:rulespackage/0-IeCjwf1W
+      NetworkReachabilityPackage: arn:aws:inspector:eu-west-2:146838936955:rulespackage/0-AizSYyNq
+      SecurityBestPracticesRulesPackage: arn:aws:inspector:eu-west-2:146838936955:rulespackage/0-XApUiSaP
+      ServiceAccountArn: arn:aws:iam::146838936955:root
 
+    # Paris
     eu-west-3:
       CVERulesPackage: NotSupported
       CISRulesPackage: NotSupported
+      NetworkReachabilityPackage: NotSupported
       SecurityBestPracticesRulesPackage: NotSupported
-      RuntimeBehaviorRulesPackage: NotSupported
       ServiceAccountArn: NotSupported
 
+    # Bahrain
+    me-south-1:
+      CVERulesPackage: NotSupported
+      CISRulesPackage: NotSupported
+      NetworkReachabilityPackage: NotSupported
+      SecurityBestPracticesRulesPackage: NotSupported
+      ServiceAccountArn: NotSupported
+
+    # São Paulo
     sa-east-1:
       CVERulesPackage: NotSupported
       CISRulesPackage: NotSupported
+      NetworkReachabilityPackage: NotSupported
       SecurityBestPracticesRulesPackage: NotSupported
-      RuntimeBehaviorRulesPackage: NotSupported
       ServiceAccountArn: NotSupported
 
+    # N. Virginia
     us-east-1:
       CVERulesPackage: arn:aws:inspector:us-east-1:316112463485:rulespackage/0-gEjTy7T7
       CISRulesPackage: arn:aws:inspector:us-east-1:316112463485:rulespackage/0-rExsr2X8
+      NetworkReachabilityPackage: arn:aws:inspector:us-east-1:316112463485:rulespackage/0-PmNV0Tcd
       SecurityBestPracticesRulesPackage: arn:aws:inspector:us-east-1:316112463485:rulespackage/0-R01qwB5Q
-      RuntimeBehaviorRulesPackage: arn:aws:inspector:us-east-1:316112463485:rulespackage/0-gBONHN9h
       ServiceAccountArn: arn:aws:iam::316112463485:root
 
+    # Ohio
     us-east-2:
       CVERulesPackage: arn:aws:inspector:us-east-2:646659390643:rulespackage/0-JnA8Zp85
       CISRulesPackage: arn:aws:inspector:us-east-2:646659390643:rulespackage/0-m8r61nnh
+      NetworkReachabilityPackage: arn:aws:inspector:us-east-2:646659390643:rulespackage/0-cE4kTR30
       SecurityBestPracticesRulesPackage: arn:aws:inspector:us-east-2:646659390643:rulespackage/0-AxKmMHPX
-      RuntimeBehaviorRulesPackage: arn:aws:inspector:us-east-2:646659390643:rulespackage/0-UCYZFKPV
       ServiceAccountArn: arn:aws:iam::646659390643:root
 
-    us-gov-west-1:
-      CVERulesPackage: NotSupported
-      CISRulesPackage: NotSupported
-      SecurityBestPracticesRulesPackage: NotSupported
-      RuntimeBehaviorRulesPackage: NotSupported
-      ServiceAccountArn: NotSupported
+    # US Gov East 1
+    us-gov-east-1:
+      CVERulesPackage: arn:aws-us-gov:inspector:us-gov-east-1:206278770380:rulespackage/0-3IFKFuOb
+      CISRulesPackage: arn:aws-us-gov:inspector:us-gov-east-1:206278770380:rulespackage/0-pTLCdIww
+      SecurityBestPracticesRulesPackage: arn:aws-us-gov:inspector:us-gov-east-1:206278770380:rulespackage/0-vlgEGcVD
+      ServiceAccountArn: arn:aws-us-gov:iam::206278770380:root
 
+    # US Gov West 1
+    us-gov-west-1:
+      CVERulesPackage: arn:aws-us-gov:inspector:us-gov-west-1:850862329162:rulespackage/0-4oQgcI4G
+      CISRulesPackage: arn:aws-us-gov:inspector:us-gov-west-1:850862329162:rulespackage/0-Ac4CFOuc
+      SecurityBestPracticesRulesPackage: arn:aws-us-gov:inspector:us-gov-west-1:850862329162:rulespackage/0-rOTGqe5G
+      ServiceAccountArn: arn:aws-us-gov:iam::850862329162:root
+
+    # N. California
     us-west-1:
       CVERulesPackage: arn:aws:inspector:us-west-1:166987590008:rulespackage/0-TKgzoVOa
       CISRulesPackage: arn:aws:inspector:us-west-1:166987590008:rulespackage/0-xUY8iRqX
+      NetworkReachabilityPackage: arn:aws:inspector:us-west-1:166987590008:rulespackage/0-TxmXimXF
       SecurityBestPracticesRulesPackage: arn:aws:inspector:us-west-1:166987590008:rulespackage/0-byoQRFYm
-      RuntimeBehaviorRulesPackage: arn:aws:inspector:us-west-1:166987590008:rulespackage/0-yeYxlt0x
       ServiceAccountArn: arn:aws:iam::166987590008:root
 
+    # Oregon
     us-west-2:
       CVERulesPackage: arn:aws:inspector:us-west-2:758058086616:rulespackage/0-9hgA516p
       CISRulesPackage: arn:aws:inspector:us-west-2:758058086616:rulespackage/0-H5hpSawc
+      NetworkReachabilityPackage: arn:aws:inspector:us-west-2:758058086616:rulespackage/0-rD1z6dpl
       SecurityBestPracticesRulesPackage: arn:aws:inspector:us-west-2:758058086616:rulespackage/0-JJOtZiqQ
-      RuntimeBehaviorRulesPackage: arn:aws:inspector:us-west-2:758058086616:rulespackage/0-vg5GGHSD
       ServiceAccountArn: arn:aws:iam::758058086616:root
 
   SourceCode:
     General:
-      S3Bucket: %%BUCKET_NAME%%
-      KeyPrefix: server-fleet-management-at-scale/%%VERSION%%
-
+      S3Bucket: "%%BUCKET_NAME%%"
+      KeyPrefix: "%%SOLUTION_NAME%%/%%VERSION%%"
 
 #==================================================
 # Resources
@@ -236,12 +275,59 @@ Resources:
   #==================================================
   # Inspector will post notifications to this SNS topic
   # when assessments are completed.
+  # KMS Policy: https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html#key-policy-example
   #==================================================
+  SnsEncryptionKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: Key used for Server Fleet Management Solution SNS
+      Enabled: true
+      EnableKeyRotation: true
+      KeyPolicy:
+        Statement:
+          - Sid: default
+            Effect: Allow
+            Action:
+              - kms:*
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+            Resource: "*"
+          - Sid: inspector-access-policy
+            Effect: Allow
+            Principal:
+              Service: inspector.amazonaws.com
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Resource: "*"
+          - Sid: inspector-grant-access-policy
+            Action:
+              - kms:CreateGrant
+              - kms:ListGrants
+              - kms:RevokeGrant
+            Effect: Allow
+            Principal:
+              Service: inspector.amazonaws.com
+            Resource: "*"
+            Condition:
+              Bool:
+                kms:GrantIsForAWSResource: true
+
+  SnsEncryptionKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/sfm-sns-encryption-key
+      TargetKeyId: !Ref SnsEncryptionKey
+
   InspectorNotificationTopic:
     Type: AWS::SNS::Topic
     Properties:
       DisplayName: Inspector
       TopicName: inspector-completion-notifications
+      KmsMasterKeyId: !Ref SnsEncryptionKey
 
   # Only add the subscription if an email address was provided.
   InspectorNotificationTopicSubscription:
@@ -271,6 +357,7 @@ Resources:
     Properties:
       DisplayName: Inspector
       TopicName: inspector-agent-id-notifications
+      KmsMasterKeyId: !Ref SnsEncryptionKey
 
   #pull this out
   InspectorAgentIdNotificationTopicPolicy:
@@ -312,19 +399,16 @@ Resources:
       DurationInSeconds: 900
       RulesPackageArns:
         - !FindInMap [InspectorSettings, !Ref "AWS::Region", CVERulesPackage]
+        - !FindInMap [InspectorSettings, !Ref "AWS::Region", CISRulesPackage]
+        - !FindInMap [InspectorSettings, !Ref "AWS::Region", NetworkReachabilityPackage]
         - !FindInMap [InspectorSettings, !Ref "AWS::Region", SecurityBestPracticesRulesPackage]
-        - !FindInMap [InspectorSettings, !Ref "AWS::Region", RuntimeBehaviorRulesPackage]
-        # The CIS rules package is not yet avaiable for Amazon Linux. Enable this
-        # when the feature is supported.
-        # - !FindInMap [InspectorSettings, !Ref "AWS::Region", CISRulesPackage]
 
   CreateInspectorEventSubscriptionRole:
     Type: AWS::IAM::Role
+    Description: SFM create inspector event subscription role
     Properties:
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       AssumeRolePolicyDocument:
-        Version: "2012-10-17"
+        Version: 2012-10-17
         Statement:
           - Effect: Allow
             Principal:
@@ -332,16 +416,34 @@ Resources:
                 - lambda.amazonaws.com
             Action:
               - sts:AssumeRole
-      Policies:
-        - PolicyName: CreateInspectorResources
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - inspector:SubscribeToEvent
-                  # - inspector:StartAssessmentRun
-                Resource: "*"
+      Path: "/"
+
+  CreateInspectorEventSubscriptionPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: SFM create inspector event subscription policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - inspector:SubscribeToEvent
+            Resource:
+              - "*"
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource:
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${CreateInspectorEventSubscriptionFunction}:*
+      Roles:
+        - !Ref CreateInspectorEventSubscriptionRole
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W13
+            reason: The * resource is needed for Inspector because it cannot specify resources for Inspector.
 
   #==================================================
   # This custom Lambda function will create Inspector resources.
@@ -350,28 +452,27 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: SFM-CreateInspectorResources
-      Description: Server Fleet Management Solution - subscribes Inspector to CloudWatch Event
+      Description: Server Fleet Management Solution - subscribes Inspector to SNS
       Handler: sfm-subscribe-inspector-to-event.lambda_handler
       MemorySize: 1024
       Role: !GetAtt CreateInspectorEventSubscriptionRole.Arn
-      Runtime: python3.6
+      Runtime: python3.8
       Timeout: 10
       Environment:
         Variables:
           assessment_template_arn: !GetAtt InspectorTemplate.Arn
           assessment_notification_topic_arn: !Ref InspectorNotificationTopic
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "sfm-subscribe-inspector-to-event.zip"]]
-
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "sfm-subscribe-inspector-to-event.zip"]]
 
   #==================================================
   # CloudFormation uses this custom resource to invoke
-  # the Lambda function to create the Inspector resources.
+  # the Lambda function to set SNS topic for Inspector.
   #================================================
   CreateInspectorResources:
     Type: Custom::CreateInspectorResources
-    DependsOn: CreateInspectorEventSubscriptionFunction
+    DependsOn: CreateInspectorEventSubscriptionPolicy
     Properties:
       ServiceToken: !GetAtt CreateInspectorEventSubscriptionFunction.Arn
 
@@ -401,7 +502,12 @@ Resources:
                 Action:
                   - inspector:StartAssessmentRun
                 Resource:
-                  - '*'
+                  - "*"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: The * resource is needed because it cannot specify resources for Inspector.
 
   ScheduledInspectorJob:
     Type: AWS::Events::Rule
@@ -416,10 +522,11 @@ Resources:
           Id: TargetRunV1
 
   #================================================
-  # Listener for Inspector job completions
+  # Roles for Inspector job completions
   #================================================
   RespondToInspectorFindingsRole:
     Type: AWS::IAM::Role
+    Description: SFM respond to inspector agent ID findings role
     Properties:
       AssumeRolePolicyDocument:
         Version: 2012-10-17
@@ -430,24 +537,121 @@ Resources:
                 - lambda.amazonaws.com
             Action:
               - sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: InspectorAndSsm
+        - PolicyName: xray-policy
           PolicyDocument:
             Version: 2012-10-17
             Statement:
-              Effect: Allow
-              Action:
+              - Effect: Allow
+                Action:
+                  - xray:PutTelemetryRecords
+                  - xray:PutTraceSegments
+                Resource:
+                  "*"
+      Path: "/"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: The * resource is needed because it cannot specify resources for x-ray.
+
+  RespondToInspectorFindingsPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: SFM respond to inspector agent ID findings policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
               - inspector:DescribeFindings
-              - inspector:ListAssessmentRunAgents
               - inspector:ListFindings
-              - sns:Publish
               - ssm:PutInventory
-              - xray:PutTelemetryRecords
-              - xray:PutTraceSegments
-              Resource:
+            Resource:
               - "*"
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource:
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${RespondToInspectorAgentIdFindingsFunction}:*
+      Roles:
+        - !Ref RespondToInspectorFindingsRole
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: The * resource is needed because it cannot specify resources for Inspector and SSM.
+
+  RespondToInspectorAssessmentCompleteRole:
+    Type: AWS::IAM::Role
+    Description: SFM respond to inspector assessment complete role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: xray-policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - xray:PutTelemetryRecords
+                  - xray:PutTraceSegments
+                Resource:
+                  "*"
+      Path: "/"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W11
+            reason: The * resource is needed because it cannot specify resources for xray.
+
+  RespondToInspectorAssessmentCompletePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: SFM respond to inspector assessment complete policy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - inspector:ListAssessmentRunAgents
+            Resource:
+              - "*"
+          - Effect: Allow
+            Action:
+              - sns:Publish
+            Resource:
+              - !Ref InspectorAgentIdNotificationTopic
+          - Effect: Allow
+            Action:
+              - kms:GenerateDataKey
+              - kms:Decrypt
+            Resource:
+              - !GetAtt SnsEncryptionKey.Arn
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource:
+              - !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${RespondToInspectorAssessmentCompleteFunction}:*
+      Roles:
+        - !Ref RespondToInspectorAssessmentCompleteRole
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W13
+            reason: The * resource is needed because it cannot specify resources for Inspector.
 
   #==================================================
   # This custom Lambda function is triggered by Inspector job completions
@@ -462,8 +666,8 @@ Resources:
         the function to retrieve findings for each instance.
       Handler: sfm-respond-to-inspector-assessment-complete.lambda_handler
       MemorySize: 1024
-      Role: !GetAtt RespondToInspectorFindingsRole.Arn
-      Runtime: python3.6
+      Role: !GetAtt RespondToInspectorAssessmentCompleteRole.Arn
+      Runtime: python3.8
       Timeout: 180
       Environment:
         Variables:
@@ -473,8 +677,8 @@ Resources:
       TracingConfig:
         Mode: Active
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "sfm-respond-to-inspector-assessment-complete.zip"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "sfm-respond-to-inspector-assessment-complete.zip"]]
 
   #==================================================
   # The RespondToInspectorFindings Lambda function will subscribe to the
@@ -490,7 +694,7 @@ Resources:
   #==================================================
   # This permission allows SNS to trigger the Lambda function.
   #==================================================
-  RespondToInspectorFindingsPolicy:
+  RespondToInspectorFindingsLambdaPermission:
     Type: AWS::Lambda::Permission
     Properties:
       FunctionName: !Ref RespondToInspectorAssessmentCompleteFunction
@@ -512,16 +716,13 @@ Resources:
       Handler: sfm-respond-to-inspector-agent-id-findings.lambda_handler
       MemorySize: 1024
       Role: !GetAtt RespondToInspectorFindingsRole.Arn
-      Runtime: python3.6
+      Runtime: python3.8
       Timeout: 180
-      Environment:
-        Variables:
-          assessment_agent_id_notification_topic_arn: !Ref InspectorAgentIdNotificationTopic
       TracingConfig:
         Mode: Active
       Code:
-        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], Ref: "AWS::Region"]]
-        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"],  "sfm-respond-to-inspector-agent-id-findings.zip"]]
+        S3Bucket: !Join ["-", [!FindInMap ["SourceCode", "General", "S3Bucket"], !Ref "AWS::Region"]]
+        S3Key: !Join ["/", [!FindInMap ["SourceCode", "General", "KeyPrefix"], "sfm-respond-to-inspector-agent-id-findings.zip"]]
 
   #==================================================
   # The RespondToInspectorAgentIdFindingsFunction Lambda function will
