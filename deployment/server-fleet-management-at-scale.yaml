@@ -149,7 +149,7 @@ Mappings:
       AMZNLINUX: "amzn-ami-hvm-2018.03.0.20190826*x86_64-gp2"
       REDHAT: "RHEL-7.7_HVM-20191028-x86_64-1-Hourly2-GP2"
       UBUNTU: "ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-20191002"
-      WINDOWS: "Windows_Server-2016-English-Full-Base-2019.11.13"
+      WINDOWS: "Windows_Server-2016-English-Full-Base-2020.03.11"
 
   EC2:
     Instance:
